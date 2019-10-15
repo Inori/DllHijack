@@ -1,6 +1,7 @@
 #include <Windows.h>
 #include <process.h>
 #include <cstring>
+#include <filesystem>
 
 
 typedef DWORD(WINAPI*PFUNC_VerFindFileA)(DWORD, LPCSTR, LPCSTR, LPCSTR, LPSTR, PUINT, LPSTR, PUINT);
@@ -123,7 +124,7 @@ void WINAPI GetFileVersionInfoByHandle()
 }
 
 
-void LoadCustomDll()
+void LoadPatchDlls()
 {
 	do
 	{
@@ -140,10 +141,20 @@ void LoadCustomDll()
 			break;
 		}
 
-		char* pPos = strrchr(szPath, '\\');
-		pPos[1] = 0;
-		strcat_s(szPath, MAX_PATH, "HOOKDLL.COM");
-		LoadLibraryA(szPath);
+		std::string exePath(szPath);
+		std::string rootDir = exePath.substr(0, exePath.find_last_of('\\'));
+		std::filesystem::path rootPath(rootDir);
+		auto patchPath = rootPath / "patch";
+
+		if (!std::filesystem::exists(patchPath))
+		{
+			break;
+		}
+
+		for (const auto & entry : std::filesystem::directory_iterator(patchPath))
+		{
+			LoadLibraryW(entry.path().c_str());
+		}
 
 	} while (false);
 }
@@ -186,7 +197,7 @@ static unsigned int __stdcall InitSymbols(void*)
 		OldVerQueryValueW = (PFUNC_VerQueryValueW)GetProcAddress(hVerDll, "VerQueryValueW");
 		OldGetFileVersionInfoByHandle = (PFUNC_GetFileVersionInfoByHandle)GetProcAddress(hVerDll, "GetFileVersionInfoByHandle");
 
-		LoadCustomDll();
+		LoadPatchDlls();
 
 	} while (false);
 	return 0;
