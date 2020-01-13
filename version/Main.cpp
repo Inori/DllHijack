@@ -199,6 +199,17 @@ void LoadConfigDlls()
 		{
 			std::string dllName;
 			getline(fin, dllName);
+
+			if (dllName.empty())
+			{
+				continue;
+			}
+
+			if (dllName[0] == '#')
+			{
+				continue;
+			}
+
 			std::replace(dllName.begin(), dllName.end(), '/', '\\');
 			auto fullPath = rootPath / dllName;
 			loadList.push_back(fullPath.string());
@@ -256,7 +267,7 @@ static unsigned int __stdcall InitSymbols(void*)
 		OldGetFileVersionInfoByHandle = (PFUNC_GetFileVersionInfoByHandle)GetProcAddress(hVerDll, "GetFileVersionInfoByHandle");
 
 		LoadConfigDlls();
-		LoadPatchDlls();
+		//LoadPatchDlls();
 
 	} while (false);
 	return 0;
