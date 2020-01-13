@@ -124,6 +124,10 @@ void WINAPI GetFileVersionInfoByHandle()
 	(OldGetFileVersionInfoByHandle)();
 }
 
+// For detours
+__declspec(dllexport)void WINAPI Dummy()
+{
+}
 
 std::string GetExeDirector()
 {
