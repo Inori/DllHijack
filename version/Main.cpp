@@ -1,6 +1,7 @@
 #include <Windows.h>
 #include <process.h>
 #include <cstring>
+#include <fstream>
 #include <filesystem>
 
 
@@ -124,9 +125,10 @@ void WINAPI GetFileVersionInfoByHandle()
 }
 
 
-void LoadPatchDlls()
+std::string GetExeDirector()
 {
-	do
+	std::string exeDir;
+	do 
 	{
 		HMODULE hModule = GetModuleHandleA(NULL);
 		if (!hModule)
@@ -142,7 +144,21 @@ void LoadPatchDlls()
 		}
 
 		std::string exePath(szPath);
-		std::string rootDir = exePath.substr(0, exePath.find_last_of('\\'));
+		exeDir = exePath.substr(0, exePath.find_last_of('\\'));
+	} while (false);
+	return exeDir;
+}
+
+void LoadPatchDlls()
+{
+	do
+	{
+		std::string rootDir = GetExeDirector();
+		if (rootDir.empty())
+		{
+			break;
+		}
+
 		std::filesystem::path rootPath(rootDir);
 		auto patchPath = rootPath / "patch";
 
@@ -159,7 +175,49 @@ void LoadPatchDlls()
 	} while (false);
 }
 
+void LoadConfigDlls()
+{
+	do
+	{
+		std::string rootDir = GetExeDirector();
+		if (rootDir.empty())
+		{
+			break;
+		}
 
+		std::filesystem::path rootPath(rootDir);
+		auto configPath = rootPath / "load_list.txt";
+
+		std::ifstream fin(configPath);
+		if (!fin.is_open())
+		{
+			break;
+		}
+
+		std::vector<std::string> loadList;
+		while (!fin.eof())
+		{
+			std::string dllName;
+			getline(fin, dllName);
+			std::replace(dllName.begin(), dllName.end(), '/', '\\');
+			auto fullPath = rootPath / dllName;
+			loadList.push_back(fullPath.string());
+		}
+
+		for (const auto& dll : loadList)
+		{
+			if (!std::filesystem::exists(dll))
+			{
+				continue;
+			}
+
+			LoadLibraryA(dll.c_str());
+		}
+
+		fin.close();
+
+	} while (false);
+}
 
 static unsigned int __stdcall InitSymbols(void*)
 {
@@ -197,6 +255,7 @@ static unsigned int __stdcall InitSymbols(void*)
 		OldVerQueryValueW = (PFUNC_VerQueryValueW)GetProcAddress(hVerDll, "VerQueryValueW");
 		OldGetFileVersionInfoByHandle = (PFUNC_GetFileVersionInfoByHandle)GetProcAddress(hVerDll, "GetFileVersionInfoByHandle");
 
+		LoadConfigDlls();
 		LoadPatchDlls();
 
 	} while (false);
