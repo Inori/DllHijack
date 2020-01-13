@@ -175,6 +175,28 @@ void LoadPatchDlls()
 	} while (false);
 }
 
+void parseDllsInFolder(const std::string& folderName, std::vector<std::string>& loadList)
+{
+	do 
+	{
+		if (folderName.empty())
+		{
+			break;
+		}
+
+		if (!std::filesystem::exists(folderName))
+		{
+			break;
+		}
+
+		for (const auto & entry : std::filesystem::directory_iterator(folderName))
+		{
+			loadList.push_back(entry.path().string());
+		}
+
+	} while (false);
+}
+
 void LoadConfigDlls()
 {
 	do
@@ -212,7 +234,15 @@ void LoadConfigDlls()
 
 			std::replace(dllName.begin(), dllName.end(), '/', '\\');
 			auto fullPath = rootPath / dllName;
-			loadList.push_back(fullPath.string());
+
+			if (std::filesystem::is_directory(fullPath))
+			{
+				parseDllsInFolder(fullPath.string(), loadList);
+			}
+			else
+			{
+				loadList.push_back(fullPath.string());
+			}
 		}
 
 		for (const auto& dll : loadList)
