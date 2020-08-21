@@ -3,6 +3,8 @@
 #include <cstring>
 #include <fstream>
 #include <filesystem>
+#include <iostream>
+#include <string>
 
 
 typedef DWORD(WINAPI*PFUNC_VerFindFileA)(DWORD, LPCSTR, LPCSTR, LPCSTR, LPSTR, PUINT, LPSTR, PUINT);
@@ -129,6 +131,28 @@ __declspec(dllexport)void WINAPI Dummy()
 {
 }
 
+
+#define LOG_TAG "[Asuka]"
+
+void DebugPrint(const char* function, const char* format, ...)
+{
+	char szTempStr[512] = { 0 };
+	char szDbgStr[512] = { 0 };
+
+	va_list   arg_list;
+	va_start(arg_list, format);
+
+	vsprintf_s(szTempStr, _countof(szTempStr), format, arg_list);
+	sprintf_s(szDbgStr, _countof(szDbgStr), "%s:%s:%s\n", LOG_TAG, function, szTempStr);
+
+	va_end(arg_list);
+
+	printf("%s", szDbgStr);
+	OutputDebugStringA(szDbgStr);
+}
+
+#define DEBUG_PRINT(format, ...) DebugPrint(__FUNCTION__, format, __VA_ARGS__)
+
 std::string GetExeDirector()
 {
 	std::string exeDir;
@@ -214,6 +238,8 @@ void LoadConfigDlls()
 		std::filesystem::path rootPath(rootDir);
 		auto configPath = rootPath / "load_list.txt";
 
+		DEBUG_PRINT("parsing config %s", configPath.string().c_str());
+
 		std::ifstream fin(configPath);
 		if (!fin.is_open())
 		{
@@ -224,7 +250,7 @@ void LoadConfigDlls()
 		while (!fin.eof())
 		{
 			std::string dllName;
-			getline(fin, dllName);
+			std::getline(fin, dllName);
 
 			if (dllName.empty())
 			{
@@ -253,15 +279,19 @@ void LoadConfigDlls()
 		{
 			if (!std::filesystem::exists(dll))
 			{
+				DEBUG_PRINT("dll not found %s", dll.c_str());
 				continue;
 			}
 
+			DEBUG_PRINT("loading %s", dll.c_str());
 			LoadLibraryA(dll.c_str());
 		}
 
 		fin.close();
 
 	} while (false);
+
+	DEBUG_PRINT("done loading.");
 }
 
 static unsigned int __stdcall InitSymbols(void*)
@@ -276,9 +306,12 @@ static unsigned int __stdcall InitSymbols(void*)
 		}
 
 		strcat_s(szDllPath, "\\version.dll");
+		DEBUG_PRINT("original version.dll path %s", szDllPath);
+
 		HMODULE hVerDll = LoadLibraryA(szDllPath);
 		if (!hVerDll)
 		{
+			DEBUG_PRINT("load original version.dll failed.");
 			break;
 		}
 
@@ -300,6 +333,8 @@ static unsigned int __stdcall InitSymbols(void*)
 		OldVerQueryValueW = (PFUNC_VerQueryValueW)GetProcAddress(hVerDll, "VerQueryValueW");
 		OldGetFileVersionInfoByHandle = (PFUNC_GetFileVersionInfoByHandle)GetProcAddress(hVerDll, "GetFileVersionInfoByHandle");
 
+		DEBUG_PRINT("initialize functions success.");
+
 		LoadConfigDlls();
 		//LoadPatchDlls();
 
@@ -309,6 +344,8 @@ static unsigned int __stdcall InitSymbols(void*)
 
 void Init()
 {
+	DEBUG_PRINT("init hijack.");
+
 	HANDLE hThread = NULL;
 	unsigned int uiThreadId = 0 ;
 	hThread = (HANDLE)_beginthreadex(NULL,
